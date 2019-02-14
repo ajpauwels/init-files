@@ -1,2 +1,2 @@
 # init-files
-Stores my bash and init files
+Stores bash and emacs init files
