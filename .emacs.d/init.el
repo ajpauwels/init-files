@@ -188,6 +188,8 @@
 							 (define-key tern-mode-keymap (kbd "M-,") nil)
 							 (define-key js2-mode-map (kbd "M-.") nil)))
   (add-to-list 'auto-mode-alist '("\\.js$" . js2-mode)))
+;; Keep js2-mode from saying 'require' is undeclared
+(setq js2-include-node-externs t)
 
 ;; Remove "M-." from js-mode as well
 (define-key js-mode-map (kbd "M-.") nil)
