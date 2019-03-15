@@ -119,7 +119,7 @@ fi
 ### User-defined bashrc contents ###
 
 # Opens a program in background and suppresses output
-function bs() { "$@" >/dev/null 2>/dev/null & }
+function bs() { "$@" >/dev/null 2>&1 & }
 
 # Make spotify look normal on hi-dpi
 alias spotify="bs /usr/bin/spotify --force-device-scale-factor=2"
@@ -139,11 +139,26 @@ alias clip='function _clip() { cat "$1" | xclip -i -selection clipboard; };_clip
 # "search in files" here and in all subdirectories
 alias sif='function _sif() { grep -rn "${@:2}" "$1" .; };_sif'
 
+# Like sif but performs a search and replace, "replace in files"
+rif() {
+	find . -type f -exec sed -i "s/$1/$2/g" {} +
+}
+
 # "search in processes" for given string
 alias sip='ps aux | grep $1'
 
-# cli for robotpy-installer
-alias robotpy-installer='python3 -m robotpy_installer'
+# Set volume quickly
+alias vol="pactl set-sink-volume 0 $1"
+
+# Make a directory and all other directories needed along the way
+alias mkdirp="mkdir -p"
+
+# Make a directory and cd into it
+alias mcd='function _mcd() { mkdirp "$1" && cd "$1"; };_mcd'
+
+# For clearing the terminal window
+alias r='reset'
+alias c='clear'
 
 # Add node version manager to manage node versions
 export NVM_DIR="$HOME/.nvm"
