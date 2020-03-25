@@ -1,43 +1,70 @@
-;; Automatically download packages from MELPA
-(eval-when-compile (defvar use-package-always-ensure))
-(setq use-package-always-ensure t)
+;;; init.el --- Alexandre Pauwels' custom emacs config
+
+;;; Commentary:
+;;  - Sets up Emacs v26.3
+
+;;; Code:
 
 ;; Setup MELPA
-(package-initialize)
 (require 'package)
-(add-to-list 'package-archives
-             '("melpa" . "https://melpa.org/packages/"))
+(let* ((no-ssl (and (memq system-type '(windows-nt ms-dos))
+                    (not (gnutls-available-p))))
+       (proto (if no-ssl "http" "https")))
+  (when no-ssl (warn "\
+Your version of Emacs does not support SSL connections,
+which is unsafe because it allows man-in-the-middle attacks.
+There are two things you can do about this warning:
+1. Install an Emacs version that does support SSL and be safe.
+2. Remove this warning from your init file so you won't see it again."))
+  (add-to-list 'package-archives (cons "melpa" (concat proto "://melpa.org/packages/")) t)
+  ;; Comment/uncomment this line to enable MELPA Stable if desired.  See `package-archive-priorities`
+  ;; and `package-pinned-packages`. Most users will not need or want to do this.
+  ;;(add-to-list 'package-archives (cons "melpa-stable" (concat proto "://stable.melpa.org/packages/")) t)
+  )
+(package-initialize)
 
-;; Bootstrap `use-package'
+;; Install use-package
 (unless (package-installed-p 'use-package)
   (package-refresh-contents)
   (package-install 'use-package))
+
+;; Setup use-package
 (eval-when-compile
   (require 'use-package))
+
+;; Avoid having Custom config at end of init.el
 (setq custom-file "~/.emacs.d/custom-settings.el")
 (load custom-file t)
 
+;; Install theme first
+(use-package zenburn-theme
+  :ensure t
+  :config
+  (load-theme 'zenburn t))
+
 ;; Add line numbers
-(global-linum-mode 1)
+(global-linum-mode t)
 
 ;; Remove scrollbar
 (scroll-bar-mode -1)
 
-;; Don't display a startup message
-(setq inhibit-startup-message t)
+;; Disable toolbar
+(tool-bar-mode -1)
 
-;; Use actual TAB characters to indent and set tabs to 4 spaces
-(setq-default tab-width 4)
-(setq-default indent-tabs-mode t)
+;; Disable menubar
+(menu-bar-mode -1)
 
-;; Auto-indent
-(electric-indent-mode 1)
+;; Don't display a startup screen
+(setq inhibit-startup-screen t)
 
 ;; No beeping all the time
 (setq ring-bell-function 'ignore)
 
-;; Disable toolbar
-(tool-bar-mode -1)
+;; Disable cursor blinking
+(blink-cursor-mode 0)
+
+;; Force newline at end of files
+(setq require-final-newline t)
 
 ;; Don't force use of "yes" and "no"
 (fset 'yes-or-no-p 'y-or-n-p)
@@ -45,32 +72,11 @@
 ;; Remap C-r to open replace-regexp
 (global-set-key (kbd "C-r") 'replace-regexp)
 
-;; Install company for auto-completion
-(use-package company
-  :ensure t
-  :config
-  (global-company-mode 1)
-  (setq company-idle-delay 0)
-  (setq company-minimum-prefix-length 1)
-  (setq company-tooltip-align-annotations t))
+;; Revert to last save bound to F5
+(global-set-key (kbd "<f5>") 'revert-buffer)
 
-;; Auto-completion in js-mode and js2-mode
-(use-package company-tern
-  :ensure t
-  :config
-  (global-company-mode 1)
-  (add-to-list 'company-backends '(company-tern)))
-
-;; Auto-completion in LSP mode
-(use-package company-lsp
-  :ensure t
-  :config
-  (add-to-list 'company-backends '(company-lsp)))
-
-;; Load custom color theme
-(use-package gruvbox-theme
-  :config
-  (load-theme 'gruvbox))
+;; Place backup files in backup directly
+(setq backup-directory-alist '(("." . "~/.emacs.d/backups")))
 
 ;; Bind C-= to expand region for incrementally selecting
 ;; regions of text
@@ -78,203 +84,160 @@
   :ensure t
   :bind ("C-=" . er/expand-region))
 
-;; Install flycheck package for syntax checking and highlighting
-(use-package flycheck
-  :ensure t
-  :config
-  (setq-default flycheck-javascript-eslint-executable "eslint-project-relative")
-
-  ;; Checks for local eslint file before using default eslint
-  (defun my/use-eslint-from-node-modules ()
-    (let* ((root (locate-dominating-file
-				  (or (buffer-file-name) default-directory)
-				  "node_modules"))
-		   (eslint (and root
-						(expand-file-name "node_modules/eslint/bin/eslint.js"
-										  root))))
-      (when (and eslint (file-executable-p eslint))
-		(setq-local flycheck-javascript-eslint-executable eslint))))
-  (add-hook 'flycheck-mode-hook #'my/use-eslint-from-node-modules)
-  (global-flycheck-mode 1)
-
-  ;; Disable jshint since we're using eslint
-  (setq-default flycheck-disabled-checkers
-				(append flycheck-disabled-checkers
-						'(javascript-jshint)))
-
-  ;; Set flycheck temp file prefix
-  (setq-default flycheck-temp-prefix ".flycheck"))
-
-;; Set tab to actually insert a TAB character
-(setq-default indent-tabs-mode t)
-
-;; Enable undo tree, I fucking love this thing
-(use-package undo-tree
-  :ensure t
-  :config
-  (global-undo-tree-mode 1))
-
-;; Revert to last save bound to F5
-(global-set-key (kbd "<f5>") 'revert-buffer)
-
-;; Open terminal bound to F12
-(global-set-key (kbd "<f12>") 'ansi-term)
-
-;; Place backup files in backup directly
-(setq backup-directory-alist '(("." . "~/.emacs.d/backups")))
-
-;; Bind "^" to go up a directory level in directory mod
-(eval-when-compile (defvar dired-mode-map)) ; Gets rid of the free variable warning on dired-mode-map
-(add-hook 'dired-mode-hook
- (lambda ()
-  (define-key dired-mode-map (kbd "^")
-    (lambda () (interactive) (find-alternate-file "..")))
-  ; was dired-up-directory
-  ))
-
-;; Install to autocomplete parentheses
+;; Auto-close brackets and parens
 (use-package smartparens
   :ensure t
   :config
   (smartparens-global-mode 1))
 
-;; JAVASCRIPT MODE
-;; Install Ivy (auto-completion framework), Counsel (enhances Ivy),
-;; and Swiper (replaces isearch)
-(use-package counsel
+;; Quick window switching
+(use-package ace-window
   :ensure t
-  :diminish ivy-mode
+  :config
+  (global-set-key (kbd "M-o") 'ace-window))
+
+;; Project manager
+(use-package projectile
+  :ensure t
+  :config
+  (projectile-mode +1)
+  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+  (setq projectile-project-search-path '("~/projects/")))
+
+;; Automatically indent everything
+(use-package aggressive-indent
+  :ensure t
+  :config
+  (global-aggressive-indent-mode 1))
+
+;; Syntax checker
+(use-package flycheck
+  :ensure t
+  :init (global-flycheck-mode))
+
+;; Treemacs for helpful displaying of filesystem
+(use-package treemacs
+  :ensure t
+  :defer t
+  :bind
+  (:map global-map
+        ("M-0"       . treemacs-select-window)
+        ("C-x t 1"   . treemacs-delete-other-windows)
+        ("C-x t t"   . treemacs)
+        ("C-x t B"   . treemacs-bookmark)
+        ("C-x t C-t" . treemacs-find-file)
+        ("C-x t M-t" . treemacs-find-tag)))
+
+;; Better treemacs integration with projectile
+(use-package treemacs-projectile
+  :after treemacs projectile
+  :ensure t)
+
+;; Add support for Language Server Protocol
+(use-package lsp-mode
+  :ensure t
+  :hook
+  (lsp-mode . lsp-enable-which-key-integration)
+  :commands lsp)
+
+;; Set prefix for lsp-command-keymap
+(setq lsp-keymap-prefix "s-l")
+
+;; Provides visual feedback of LSP output
+(use-package lsp-ui
+  :ensure t
+  :after lsp-mode
+  :commands lsp-ui-mode)
+
+;; Auto-completion
+(use-package company
+  :ensure t
+  :init
+  (add-hook 'after-init-hook 'global-company-mode)
+  :config
+  ;; Recommend config by LSP documentation
+  (setq company-minimum-prefix-length 1
+	company-idle-delay 0.0))
+
+;; Auto-completion using LSP output
+(use-package company-lsp
+  :ensure t
+  :after lsp-mode company
+  :commands company-lsp)
+
+;; if you are ivy user
+(use-package lsp-ivy
+  :ensure t
+  :after lsp-mode ivy
+  :commands lsp-ivy-workspace-symbol)
+
+;; Integrate better with treemacs
+(use-package lsp-treemacs
+  :ensure t
+  :after lsp-mode treemacs
+  :commands lsp-treemacs-errors-list)
+
+;; optional if you want which-key integration
+(use-package which-key
+  :ensure t
+  :config
+  (which-key-mode))
+
+;; Enable undo tree
+(use-package undo-tree
+  :ensure t
+  :config
+  (global-undo-tree-mode 1))
+
+;; Setup Ivy
+(use-package ivy
+  :ensure t
   :config
   (ivy-mode 1)
   (setq ivy-use-virtual-buffers t)
-  (setq ivy-count-format "(%d/%d) ")
-  (setq ivy-re-builders-alist
-   '((t . ivy--regex-ignore-order)))
-  :bind
-  (("C-s" . swiper)
-   ("M-x" . counsel-M-x)
-   ("C-x C-f" . counsel-find-file)
-   ("<f1> f" . counsel-describe-function)
-   ("<f1> v" . counsel-describe-variable)
-   ("<f1> l" . counsel-find-library)
-   ("<f2> i" . counsel-info-lookup-symbol)
-   ("<f2> u" . counsel-unicode-char))
-  )
+  (setq enable-recursive-minibuffers t)
+  (global-set-key (kbd "C-c C-r") 'ivy-resume)
+  (global-set-key (kbd "<f6>") 'ivy-resume))
 
-;; Install pug mode
-(use-package pug-mode
-  :ensure t)
-
-;; Install json-mode to show JSON in a nice way
-(use-package json-mode
-  :ensure t)
-
-;; Run JS scripts directly in emacs
-(use-package npm-mode
-  :ensure t)
-
-;; Use Tern for JS code analysis and completion
-(use-package tern
-  :ensure t)
-
-;; js2-mode is best
-(use-package js2-mode
+;; Setup Counsel
+(use-package counsel
   :ensure t
   :config
-  (add-hook 'js2-mode-hook 'tern-mode)
-  (add-hook 'js2-mode-hook #'js2-imenu-extras-mode)
-  (add-hook 'js2-mode-hook (lambda ()
-							 (define-key tern-mode-keymap (kbd "M-.") nil)
-							 (define-key tern-mode-keymap (kbd "M-,") nil)
-							 (define-key js2-mode-map (kbd "M-.") nil)))
-  (add-to-list 'auto-mode-alist '("\\.js$" . js2-mode)))
-;; Keep js2-mode from saying 'require' is undeclared
-(setq js2-include-node-externs t)
+  (global-set-key (kbd "M-x") 'counsel-M-x)
+  (global-set-key (kbd "C-x C-f") 'counsel-find-file)
+  (global-set-key (kbd "<f1> f") 'counsel-describe-function)
+  (global-set-key (kbd "<f1> v") 'counsel-describe-variable)
+  (global-set-key (kbd "<f1> l") 'counsel-find-library)
+  (global-set-key (kbd "<f2> i") 'counsel-info-lookup-symbol)
+  (global-set-key (kbd "<f2> u") 'counsel-unicode-char)
+  (global-set-key (kbd "C-c g") 'counsel-git)
+  (global-set-key (kbd "C-c j") 'counsel-git-grep)
+  (global-set-key (kbd "C-c a") 'counsel-ag)
+  (global-set-key (kbd "C-x l") 'counsel-locate)
+  (define-key minibuffer-local-map (kbd "C-r") 'counsel-minibuffer-history))
 
-;; Remove "M-." from js-mode as well
-(define-key js-mode-map (kbd "M-.") nil)
-(define-key js-mode-map (kbd "M-?") 'tern-highlight-refs)
-
-;; Refactor js
-(use-package js2-refactor
+;; Setup Swiper
+(use-package swiper
   :ensure t
   :config
-  (add-hook 'js2-mode-hook #'js2-refactor-mode)
-  (js2r-add-keybindings-with-prefix "C-c C-r")
-  (define-key js2-mode-map (kbd "C-k") #'js2r-kill))
+  (global-set-key "\C-s" 'swiper))
 
-;; For cross-referencing variables across files
-(use-package xref-js2
-  :ensure t
-  :config
-  (add-hook 'js2-mode-hook (lambda ()
-							 (add-hook 'xref-backend-functions #'xref-js2-xref-backend nil t))))
-  
-;; Install snippets
-(use-package yasnippet
-  :ensure t
-  :diminish yas-minor-mode
-  :config
-  (define-key yas-minor-mode-map (kbd "<tab>") nil)
-  (define-key yas-minor-mode-map (kbd "TAB") nil)
-  (yas-global-mode 1))
-
-;; Typescript editing
-(use-package tide
-  :ensure t
-  :after (typescript-mode company flycheck)
-  :config (setq tide-format-options '(:indentSize 4 :tabSize 4 :convertTabsToSpaces nil))
-  :hook ((typescript-mode . tide-setup)
-		 (typescript-mode . tide-hl-identifier-mode)
-		 (before-save . tide-format-before-save)))
-
-;; WEB MODE
-;; Install HTML/CSS highlighting
-(use-package web-mode
-  :ensure t
-  :mode ("\\.html\\'" . web-mode)
-  :config
-  (defun my-web-mode-hook ()
-    "Hooks for Web mode. Adjust indents"
-    (setq web-mode-markup-indent-offset 4)
-    (setq web-mode-attr-indent-offset 4)
-    (setq web-mode-css-indent-offset 4)
-    (setq web-mode-code-indent-offset 4)
-    (setq web-mode-css-indent-offset 4))
-  (add-hook 'web-mode-hook  'my-web-mode-hook))
-
-;; GIT SUPPORT
-(use-package magit
-  :ensure t
-  :commands magit-status
-  :init)
-
-;; MARKDOWN MODE
+;; Support Markdown files
 (use-package markdown-mode
   :ensure t
   :commands (markdown-mode))
 
-;; YAML MODE
+;; Support YAML files
 (use-package yaml-mode
   :ensure t)
 
-;; PROJECT MANAGEMENT
-(use-package projectile
-  :ensure t
-  :diminish projectile-mode
-  :commands (projectile-find-file projectile-switch-project)
-  :init
-  :config
-  (setq projectile-completion-system 'ivy)
-  (add-to-list 'projectile-globally-ignored-directories "node_modules")
-  (projectile-mode))
-
-;; Modeline upgrade
-(use-package smart-mode-line
-  :ensure t)
-
-(use-package smart-mode-line-powerline-theme
+;; Support Rust projects
+(use-package rustic
   :ensure t
   :config
-  (setq sml/theme 'powerline)
-  (sml/setup))
+  (setq rustic-format-on-save t)
+  (setq rustic-compile-command "cargo build")
+  (setq counsel-compile-history '("cargo build")))
+
+;;; init.el ends here
